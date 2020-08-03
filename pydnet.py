@@ -21,7 +21,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-# Adapted from TensorFlow models with
+# Adapted from Pydnet TensorFlow model with
 # Copyright (c) 2018 Matteo Poggi m.poggi@unibo.it
 
 import torch
@@ -74,7 +74,6 @@ class Pydnet(nn.Module):
         else:
             self.deconv = nn.ConvTranspose2d(in_channels=8, out_channels=8, kernel_size=2, stride=2)
         
-        
     def forward(self, x):
         # Pass through encoder
         conv_out0 = self.conv0(x)
@@ -86,10 +85,7 @@ class Pydnet(nn.Module):
         
         # L6: scale 5
         out5 = self.decoder5(conv_out5)
-        print(out5.shape)
         deconv_out5 = self.deconv(out5)
-        print(deconv_out5.shape)
-        print(conv_out4.shape)
         disp5 = self.regressor(out5)
         conv_out4 = torch.cat((conv_out4, deconv_out5), 1)
         # L5: scale 4

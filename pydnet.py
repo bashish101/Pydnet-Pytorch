@@ -34,7 +34,8 @@ class SigmoidOnLastChannel(nn.Module):
         self.sigmoid = nn.Sigmoid()
         
     def forward(self, x):
-        return 0.3 * self.sigmoid(x[:,-1,:,:])
+        out = 0.3 * self.sigmoid(x[:,-1,:,:])
+        return out.unsqueeze(1)
 
 class Pydnet(nn.Module):
     """
@@ -66,7 +67,7 @@ class Pydnet(nn.Module):
         if mobile_version:
             # Transpose convolutions have been replaced by upsampling and convolution blocks to avoid checkerboard artifacts (https://distill.pub/2016/deconv-checkerboard/)
             self.deconv = nn.Sequential(
-                nn.Upsample(scale_factor=2, mode='bilinear'),
+                nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
                 # Original Tensorflow code uses 2x2 filter with same padding. For doing this in Pytorch, we need to do padding only on the right/bottom side of the image
                 nn.ZeroPad2d((0,1,0,1)),
                 nn.Conv2d(8, 8, kernel_size=2, stride=1, padding=0)

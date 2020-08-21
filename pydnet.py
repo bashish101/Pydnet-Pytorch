@@ -57,7 +57,7 @@ class Pydnet(nn.Module):
             if my_version:
                 setattr(self, "conv{}".format(i), torchvision.models.mobilenet.InvertedResidual(3 if i==0 else self.channels[i-1], self.channels[i], stride=2, expand_ratio=6))
                 # Decoders
-                setattr(self, "decoder{}".format(i), self.my_decoder_block(self.channels[i] if i==5 else self.channels[i]+8)) # +8 for the concatenated layers from previous output
+                setattr(self, "decoder{}".format(i), self.decoder_block(self.channels[i] if i==5 else self.channels[i]+8)) # +8 for the concatenated layers from previous output
             else:
                 setattr(self, "conv{}".format(i), self.conv_block(3 if i==0 else self.channels[i-1], self.channels[i]))
         
@@ -180,7 +180,7 @@ class Pyddepth(nn.Module):
         return output
 
 class PyddepthInference(Pyddepth):
-    # For inference: Returns the highest scale as output
+    # Wrapper for inference: Returns the highest scale as output
     def __init__(self, scales=[0,1,2,3], mobile_version = True, my_version=False):
         super(PyddepthInference, self).__init__(scales, mobile_version, my_version)
 

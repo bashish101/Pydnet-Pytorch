@@ -26,6 +26,8 @@
 
 import torch
 from torch import nn
+import torchvision
+from torch.nn import functional as F
 
 class SigmoidOnLastChannel(nn.Module):
     # Applies sigmoid on last channel of the input tensor and returns it
@@ -43,19 +45,24 @@ class Pydnet(nn.Module):
     
     For mobilePydnet , use mobile_version = True
     """
-    def __init__(self, mobile_version = False):
+    def __init__(self, mobile_version = False, my_version=False):
         super(Pydnet, self).__init__()
         
         self.mobile_version = mobile_version
         self.channels = [16, 32, 64, 96, 128, 192]
         
-        # Define all layers       
+        # Define all layers
         for i in range(len(self.channels)): # 0-5
             # Encoder pyramid
-            setattr(self, "conv{}".format(i), self.conv_block(3 if i==0 else self.channels[i-1], self.channels[i]))
+            if my_version:
+                setattr(self, "conv{}".format(i), torchvision.models.mobilenet.InvertedResidual(3 if i==0 else self.channels[i-1], self.channels[i], stride=2, expand_ratio=6))
+                # Decoders
+                setattr(self, "decoder{}".format(i), self.my_decoder_block(self.channels[i] if i==5 else self.channels[i]+8)) # +8 for the concatenated layers from previous output
+            else:
+                setattr(self, "conv{}".format(i), self.conv_block(3 if i==0 else self.channels[i-1], self.channels[i]))
         
-            # Decoders
-            setattr(self, "decoder{}".format(i), self.decoder_block(self.channels[i] if i==5 else self.channels[i]+8)) # +8 for the concatenated layers from previous output
+                # Decoders
+                setattr(self, "decoder{}".format(i), self.decoder_block(self.channels[i] if i==5 else self.channels[i]+8)) # +8 for the concatenated layers from previous output
         
         # Final activation regressor after each decoder
         if mobile_version:
@@ -74,6 +81,8 @@ class Pydnet(nn.Module):
             )
         else:
             self.deconv = nn.ConvTranspose2d(in_channels=8, out_channels=8, kernel_size=2, stride=2)
+
+        # self.apply(weight_init)
         
     def forward(self, x):
         # Pass through encoder
@@ -136,3 +145,46 @@ class Pydnet(nn.Module):
             nn.LeakyReLU(0.2),
             nn.Conv2d(32, 8, kernel_size=3, stride=1, padding=1),
         )
+
+    def my_decoder_block(self, in_channels):
+        return nn.Sequential(
+            torchvision.models.mobilenet.InvertedResidual(in_channels, in_channels, stride=1, expand_ratio=6),
+            nn.Conv2d(in_channels, 8, kernel_size=3, stride=1, padding=1),
+            nn.ReLU6()
+        )
+
+    def weight_init(self,m):
+        if isinstance(self.modules(), (nn.Conv2d, nn.Linear)):
+            nn.init.xavier_uniform(m.weight)
+
+
+class Pyddepth(nn.Module):
+    # Pydnet wrapper to output in the same format as Monodepth2
+    def __init__(self, scales=[0,1,2,3], mobile_version = True, my_version=False):
+        super(Pyddepth, self).__init__()
+
+        self.scales = scales
+        self.pydnet = Pydnet(mobile_version, my_version)
+
+    def forward(self, x):
+        out = {}
+        [out["disp0"], out["disp1"], 
+                            out["disp2"], out["disp3"], 
+                            out["disp4"], out["disp5"]] = self.pydnet(x)
+        
+        output = {}
+        # Since Pydnet returns lower res outputs, we upsample before returning them
+        for scale in self.scales:
+            output[("disp",scale)] = F.interpolate(out["disp{}".format(scale)],
+                                         scale_factor=2, mode = "bilinear",align_corners=False)
+        return output
+
+class PyddepthInference(Pyddepth):
+    # For inference: Returns the highest scale as output
+    def __init__(self, scales=[0,1,2,3], mobile_version = True, my_version=False):
+        super(PyddepthInference, self).__init__(scales, mobile_version, my_version)
+
+    def forward(self, x):
+        [out,_,_,_,_,_] = self.pydnet(x)
+        return F.interpolate(out, scale_factor=2, mode = "bilinear",align_corners=False)
+        

@@ -3,6 +3,12 @@ Implements [PydNet](https://github.com/mattpoggi/pydnet) and [mobilePydnet](http
     
 For mobilePydnet , use mobile_version = True
 
+Pretrained models trained on KITTI data at 192x640 resolution with [monodepth2](https://github.com/zshn25/monodepth2) are available 
+
+[mobile_pydnet](./mobile_pydnet.pth)
+
+![mobile_pydnet](./mobile_pydnet.png)
+
 
 References:
 1. [Towards real-time unsupervised monocular depth estimation on CPU](https://arxiv.org/abs/1806.11430), IROS 2018

@@ -60,7 +60,6 @@ class Pydnet(nn.Module):
                 setattr(self, "decoder{}".format(i), self.decoder_block(self.channels[i] if i==5 else self.channels[i]+8)) # +8 for the concatenated layers from previous output
             else:
                 setattr(self, "conv{}".format(i), self.conv_block(3 if i==0 else self.channels[i-1], self.channels[i]))
-        
                 # Decoders
                 setattr(self, "decoder{}".format(i), self.decoder_block(self.channels[i] if i==5 else self.channels[i]+8)) # +8 for the concatenated layers from previous output
         
@@ -122,11 +121,8 @@ class Pydnet(nn.Module):
         out0 = self.decoder0(conv_out0)
         disp0 = self.regressor(out0)
         
-#         if self.mobile_version:
-#             return fullres
-        
         return [disp0, disp1, disp2, disp3, disp4, disp5]
-        
+
     def conv_block(self, in_channels, out_channels):
         return nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=2, padding=1), 
@@ -180,11 +176,19 @@ class Pyddepth(nn.Module):
         return output
 
 class PyddepthInference(Pyddepth):
-    # Wrapper for inference: Returns the highest scale as output
-    def __init__(self, scales=[0,1,2,3], mobile_version = True, my_version=False):
+    def __init__(self, scales=[0,1,2,3], mobile_version = True, my_version=False, pretrained=False):
         super(PyddepthInference, self).__init__(scales, mobile_version, my_version)
 
+        if pretrained:
+            if mobile_version and not my_version:
+                # Fetch pretrained Kitti model
+                try:
+                    loaded_dict = torch.utils.model_zoo.load_url("https://github.com/zshn25/Pydnet-Pytorch/blob/forMonodepth2/mobile_pydnet.pth")
+                    new_dict_enc = {}
+                    for k,v in loaded_dict_enc.items():
+                        new_dict_enc[k.replace("pydnet.", "")] = loaded_dict_enc[k]
+                    self.pydnet.load_dict_state(new_dict_enc)
+                except:
+                    print("Loading pretrained model failed. Please load it manually")
     def forward(self, x):
-        [out,_,_,_,_,_] = self.pydnet(x)
-        return F.interpolate(out, scale_factor=2, mode = "bilinear",align_corners=False)
-        
+        return F.interpolate(self.pydnet(x)[0], scale_factor=2, mode = "bilinear",align_corners=False)

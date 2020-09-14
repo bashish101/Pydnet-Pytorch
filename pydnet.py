@@ -36,8 +36,7 @@ class SigmoidOnLastChannel(nn.Module):
         self.sigmoid = nn.Sigmoid()
         
     def forward(self, x):
-        out = 0.3 * self.sigmoid(x[:,-1,:,:])
-        return out.unsqueeze(1)
+        return 0.3 * self.sigmoid(x[:,-2:-1,:,:])
 
 class Pydnet(nn.Module):
     """
@@ -73,7 +72,7 @@ class Pydnet(nn.Module):
         if mobile_version:
             # Transpose convolutions have been replaced by upsampling and convolution blocks to avoid checkerboard artifacts (https://distill.pub/2016/deconv-checkerboard/)
             self.deconv = nn.Sequential(
-                nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
+                nn.Upsample(scale_factor=2, mode = "bilinear", align_corners = True),
                 # Original Tensorflow code uses 2x2 filter with same padding. For doing this in Pytorch, we need to do padding only on the right/bottom side of the image
                 nn.ZeroPad2d((0,1,0,1)),
                 nn.Conv2d(8, 8, kernel_size=2, stride=1, padding=0)
@@ -172,7 +171,7 @@ class Pyddepth(nn.Module):
         # Since Pydnet returns lower res outputs, we upsample before returning them
         for scale in self.scales:
             output[("disp",scale)] = F.interpolate(out["disp{}".format(scale)],
-                                         scale_factor=2, mode = "bilinear",align_corners=True)
+                                         scale_factor=2, mode = "bilinear", align_corners = True)
         return output
 
 class PyddepthInference(Pyddepth):
@@ -191,4 +190,5 @@ class PyddepthInference(Pyddepth):
                 except:
                     print("Loading pretrained model failed. Please load it manually")
     def forward(self, x):
-        return F.interpolate(self.pydnet(x)[0], scale_factor=2, mode = "bilinear",align_corners=True)
+        return self.pydnet(x)[0]
+        #return F.interpolate(self.pydnet(x)[0], scale_factor=2, mode = "bilinear", align_corners = True)

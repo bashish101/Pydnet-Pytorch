@@ -13,8 +13,7 @@ EDGETPU_SHARED_LIB = {
 
 # Load input image
 img1 = Image.open('test/1.png')
-img1 = img1.resize((640, 192), Image.ANTIALIAS)
-example1_tf = img1.astype(np.float32)
+example1_tf = img1.resize((640, 192), Image.ANTIALIAS)
 
 # Load the TFLite model and allocate tensors.
 interpreter = tflite.Interpreter(model_path="mobile_pydnet_pruned35.tflite",

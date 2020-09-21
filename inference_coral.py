@@ -1,6 +1,7 @@
 from PIL import Image
 import numpy as np
 import tflite_runtime.interpreter as tflite
+import time
 
 import platform
 
@@ -32,8 +33,10 @@ input_shape = input_details[0]['shape']
 interpreter.set_tensor(input_details[0]['index'], examplee1_tf)
 
 print(input_shape)
-%timeit interpreter.invoke()
-print("done")
+start = time.perf_counter()
+interpreter.invoke()
+inference_time = time.perf_counter() - start
+print('%.1fms' % (inference_time * 1000))
 # The function `get_tensor()` returns a copy of the tensor data.
 # Use `tensor()` in order to get a pointer to the tensor.
 

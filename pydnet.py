@@ -182,13 +182,15 @@ class PyddepthInference(Pyddepth):
             if mobile_version and not my_version:
                 # Fetch pretrained Kitti model
                 try:
-                    loaded_dict = torch.utils.model_zoo.load_url("https://github.com/zshn25/Pydnet-Pytorch/blob/forMonodepth2/mobile_pydnet.pth")
-                    new_dict_enc = {}
-                    for k,v in loaded_dict_enc.items():
-                        new_dict_enc[k.replace("pydnet.", "")] = loaded_dict_enc[k]
-                    self.pydnet.load_dict_state(new_dict_enc)
+                    loaded_dict = torch.hub.load_state_dict_from_url("https://github.com/zshn25/Pydnet-Pytorch/releases/download/v1.0/mobile_pydnet.pth")
+                    new_dict = {}
+                    for k in loaded_dict.keys():
+                        new_dict[k.replace("pydnet.", "")] = loaded_dict[k]
+                    self.pydnet.load_state_dict(new_dict)
                 except:
                     print("Loading pretrained model failed. Please load it manually")
+            else:
+                raise NotImplementedError("Loading pretrained model failed. Pretrained model not available")
     def forward(self, x):
         return self.pydnet(x)[0]
         #return F.interpolate(self.pydnet(x)[0], scale_factor=2, mode = "bilinear", align_corners = True)

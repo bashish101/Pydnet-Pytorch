@@ -182,7 +182,7 @@ class PyddepthInference(Pyddepth):
             if mobile_version and not my_version:
                 # Fetch pretrained Kitti model
                 try:
-                    loaded_dict = torch.hub.load_state_dict_from_url("https://github.com/zshn25/Pydnet-Pytorch/releases/download/v1.0/mobile_pydnet.pth")
+                    loaded_dict = torch.hub.load_state_dict_from_url("https://github.com/zshn25/Pydnet-Pytorch/releases/download/v1.0/mobile_pydnet.pth", progress=False)
                     new_dict = {}
                     for k in loaded_dict.keys():
                         new_dict[k.replace("pydnet.", "")] = loaded_dict[k]

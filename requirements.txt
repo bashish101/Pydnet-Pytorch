@@ -5,7 +5,6 @@ onnx==1.8.0
 onnxruntime-gpu==1.2.0
 Pillow==7.0.0
 tensorflow==2.4.0
-tensorflow-estimator==2.4.0
 timm==0.3.1
 torch==1.7.0
 torchaudio==0.7.0

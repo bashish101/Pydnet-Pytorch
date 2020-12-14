@@ -1,4 +1,7 @@
 # Pydnet-Pytorch
+
+Model optimizations and model conversions jupyter notebook [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/zshn25/Pydnet-Pytorch/c2262edb5b5f86bca5bc2c3bd25b11bd7f69c627?filepath=inference.ipynb)
+
 Implements [PydNet](https://github.com/mattpoggi/pydnet) and [mobilePydnet](https://github.com/FilippoAleotti/mobilePydnet) in Pytorch.
     
 For mobilePydnet , use `mobile_version = True`

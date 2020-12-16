@@ -26,6 +26,7 @@
 
 import torch
 from torch import nn
+from torch.nn.modules.linear import Identity
 import torchvision
 from torch.nn import functional as F
 
@@ -39,24 +40,32 @@ class SigmoidOnLastChannel(nn.Module):
         return 0.3 * self.sigmoid(x[:,-2:-1,:,:])
 
 class Pydnet(nn.Module):
-    # Pydnet wrapper to output in the same format as Monodepth2
+    """ General Autoencoder to output in the same format as Monodepth2"""
     def __init__(self, scales=[0,1,2,3],
                  enc_version = "mobilepydnet", 
                  dec_version = "mobilepydnet",
                  pretrained=False):
         """
-        Init:   
-            scales:list(int): The scales for multi-scale output (default: [0,1,2,3])
-            enc_version:string: Encoder model version (default: mobilepydnet)
-                                    if contains pydnet: PydnetEncoder
-                                        if also contain mobile: mobile version
-                                Also supports timm models. Check rwightman.github.io. Requires timm library
-                                e.g. if version="resnet18", loads resnet18 from timm library
-            dec_version:string: Decoder model version (default: mobilepydnet)
-                                    if contains pydnet: PydnetEncoder
-                                        if also contain mobile: mobile version
-                                    else is set to "general", general decoder is used
-            pretrained:bool: Only valid for loading timm encoder models
+        Initializes an autoencoder supporting wide range of architectures
+
+        Parameters
+        --------------- 
+        scales: list(int)
+            The scales for multi-scale output (default: [0,1,2,3])
+        enc_version:string
+            Encoder model version (default: mobilepydnet)
+                if contains pydnet: PydnetEncoder
+                    if also contain mobile: mobile version
+            Also supports timm models. Check rwightman.github.io. Requires timm library
+            e.g. if version="resnet18", loads resnet18 from timm library
+        dec_version:string
+            Decoder model version (default: mobilepydnet)
+                if contains pydnet: PydnetEncoder
+                    if also contain mobile: mobile version
+                else is set to "general", general decoder is used
+        pretrained:bool
+            Only valid for loading timm encoder models
+
         """
         super(Pydnet, self).__init__()
 
@@ -85,14 +94,15 @@ class Pydnet(nn.Module):
             self.decoder = GeneralDecoder(channels=self.enc_channels,scales=self.scales)
 
     def forward(self, x):
+        """Runs the forward pass of the initialized autoencoder"""
         self.features=self.encoder(x)
         output = self.decoder(self.features)
         if "pydnet" in self.dec_version:
-            return output
-        else:
             return {k:F.interpolate(v,
-                    scale_factor=2, mode = "bilinear", align_corners = True)
+                    scale_factor=2, mode = "nearest", align_corners = True)
                          for k,v in output.items()}
+        else:
+            return output
 
 class PydnetEncoder(nn.Module):
     def __init__(self, mobile_version=True, channels=[16, 32, 64, 96, 128, 192]) :
@@ -165,8 +175,8 @@ class PydnetDecoder(nn.Module):
         outputs={}
         assert len(features)==len(self.channels), "# features must be same as len of channels" 
         x = features[-1]
-        for i in range(len(self.channels)-2,-1,-1):
-            x = getattr(self, "decoder{}".format(i+1))(x)
+        for i in range(len(self.channels)-2,-1,-1): # 4,3,2,1,0
+            x = getattr(self, "decoder{}".format(i+1))(x) # 5,4,3,2,1
             deconv_out = self.deconv(x)
             if i+1 in self.scales:
                 outputs[("disp",i+1)] = self.regressor(x)
@@ -189,7 +199,7 @@ class PydnetDecoder(nn.Module):
         )
 
 class GeneralDecoder(nn.Module):
-    def __init__(self, channels=[64, 64, 128, 256, 512], scales=[0,1,2,3]):
+    def __init__(self, channels=[64, 64, 128, 256, 512], scales=[0,1,2,3], upsample_mode="nearest"):
         super(GeneralDecoder, self).__init__()
 
         self.scales = scales
@@ -204,7 +214,16 @@ class GeneralDecoder(nn.Module):
                     nn.Sequential(nn.Conv2d(self.channels[i],1,3,stride=1,padding=1),
                     nn.Sigmoid()))
         
-        self.upsample = lambda x : F.interpolate(x, scale_factor=2, mode="nearest")
+            if upsample_mode == "pixel_shuffle":
+                setattr(self, "conv_shuffle{}".format(i), nn.Conv2d(self.channels[i+1],
+                                                                self.channels[i+1]*4,
+                                                                3,stride=1,padding=1,bias=0))
+            else:
+                setattr(self, "conv_shuffle{}".format(i), nn.Identity())
+        if upsample_mode == "pixel_shuffle":
+            self.upsample = nn.PixelShuffle(2)
+        else:
+            self.upsample = lambda x : F.interpolate(x, scale_factor=2, mode=upsample_mode)
 
     def forward(self, features):
         outputs={}
@@ -229,7 +248,7 @@ class DecoderBlock(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, stride=1),
             nn.ReLU(inplace=True),
-                        )
+            )
         self.skip = nn.Conv2d(in_channels, out_channels, 1, stride=1, padding=0)
     def forward(self, x):
         return self.decoder_block(x) + self.skip(x)
@@ -244,8 +263,8 @@ def decoder_block(self, in_channels, out_channels):
                         )
 
 class PyddepthInference(Pydnet):
-    def __init__(self, scales=[0,1,2,3], enc_version = "mobilepydne",dec_verison="mobile_pydnet", pretrained=False):
-        super(PyddepthInference, self).__init__(scales, enc_version=enc_version, dec_version=dec_version)
+    def __init__(self, scales=[0,1,2,3], enc_version = "mobile_pydnet", dec_verison="mobile_pydnet", pretrained=False):
+        super(PyddepthInference, self).__init__(scales, enc_version=enc_version, dec_version=dec_verison)
 
         if pretrained:
             if enc_version=="":

@@ -263,8 +263,9 @@ def decoder_block(self, in_channels, out_channels):
                         )
 
 class PyddepthInference(Pydnet):
-    def __init__(self, scales=[0,1,2,3], enc_version = "mobile_pydnet", dec_verison="mobile_pydnet", pretrained=False):
-        super(PyddepthInference, self).__init__(scales, enc_version=enc_version, dec_version=dec_verison)
+    def __init__(self, scales=[0,1,2,3], enc_version = "mobile_pydnet", dec_version="mobile_pydnet", pretrained=False):
+        super(PyddepthInference, self).__init__(scales, enc_version=enc_version, dec_version=dec_version)
+
 
         if pretrained:
             if enc_version=="":

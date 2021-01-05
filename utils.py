@@ -2,7 +2,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import torch
 
-def time_torch_model(model, input, use_cuda=True, print_time=False):
+def time_torch_model(model, input, print_time=False):
     """
     Times the forward pass of a nn.Module with the given input.
     Inputs:
@@ -17,7 +17,9 @@ def time_torch_model(model, input, use_cuda=True, print_time=False):
     Author: Zeeshan Khan Suri
     """
     model.eval()
-    torch.cuda.synchronize()
+    use_cuda = 'cuda' in input.device.type
+    if use_cuda:
+        torch.cuda.current_stream().synchronize()
     with torch.no_grad():
         with torch.autograd.profiler.profile(use_cuda=use_cuda) as prof:
             model(input)
@@ -26,24 +28,35 @@ def time_torch_model(model, input, use_cuda=True, print_time=False):
         print("{:.3f} ms".format(total_time_ms))
     return total_time_ms
 
-def plot_input_output(img,output, print_output_shape=True):
+def tensor2numpy(x):
+    """Converts torch tensor image to numpy image for plotting"""
+    if isinstance(x, torch.Tensor):
+        x=x.to('cpu').detach().numpy()
+    x=np.array(x).squeeze()
+    if len(x.shape)==3 and x.shape[0]==3:
+        x=x.transpose((1,2,0))
+    return x
+
+def plot_input_output(img, output, print_output_shape=True, vmax=None, **kwargs):
     """
     Plots two images side-by-side.
     Inputs:
     -----------
-        image1: PIL image or numpy array
+        image1: PIL image or numpy array or torch.Tensor
         output: torch.Tensor or numpy array
+        print_output_shape: bool
+        **kwargs of matplotlib.pyplot.imshow()
     Author: Zeeshan Khan Suri
     """
-    if isinstance(output, torch.Tensor):
-        output = output.to('cpu').detach().numpy()
-    output = output.squeeze()
     
+    img,output = tensor2numpy(img), tensor2numpy(output)
+    if vmax is None:
+        vmax = np.percentile(output, 99)
     if print_output_shape: print(output.shape)
 
     fig, axes = plt.subplots(1,2, figsize=(20,3))
     axes[0].imshow(img)
-    depthmap=axes[1].imshow(output,vmax=np.percentile(output, 99))
+    depthmap=axes[1].imshow(output,vmax=vmax, **kwargs)
     fig.colorbar(depthmap);
     
 def scale_disp(disp, min_depth, max_depth):

@@ -30,6 +30,11 @@ from torch.nn.modules.linear import Identity
 import torchvision
 from torch.nn import functional as F
 
+try:
+    from torch.hub import load_state_dict_from_url
+except ImportError:
+    from torch.utils.model_zoo import load_url as load_state_dict_from_url
+
 class SigmoidOnLastChannel(nn.Module):
     # Applies sigmoid on last channel of the input tensor and returns it
     def __init__(self):
@@ -229,6 +234,7 @@ class GeneralDecoder(nn.Module):
         outputs={}
         assert len(features)==len(self.channels), "# features must be same as len of channels" 
         
+        # TODO: Indexing causes scripting error. Change it to some other logic
         x = self.upsample(features[-1]) # latent feature
         for i in range(len(features)-2,-1,-1): # 3,2,1,0
             x = getattr(self, "decoder{}".format(i))(x)
@@ -263,19 +269,22 @@ def decoder_block(self, in_channels, out_channels):
                         )
 
 class PyddepthInference(Pydnet):
-    def __init__(self, scales=[0,1,2,3], enc_version = "mobile_pydnet", dec_version="mobile_pydnet", pretrained=False):
-        super(PyddepthInference, self).__init__(scales, enc_version=enc_version, dec_version=dec_version)
-
-
+    def __init__(self, scales=[0,1,2,3], enc_version = "mobile_pydnet",
+                 dec_version="mobile_pydnet", pretrained=False,
+                 min_depth=0.1, max_depth=100.):
+        super(PyddepthInference, self).__init__(scales, 
+                                                enc_version=enc_version,
+                                                dec_version=dec_version)
+        
+        self.min_disp = 1./max_depth
+        self.max_disp = 1./max(min_depth, 1e-7)
+        
         if pretrained:
-            if enc_version=="":
+            if enc_version=="resnet18" and dec_version=="general":
                 # Fetch pretrained Kitti model
                 try:
-                    loaded_dict = torch.hub.load_state_dict_from_url("https://github.com/zshn25/Pydnet-Pytorch/releases/download/v1.0/mobile_pydnet.pth")
-                    new_dict = {}
-                    for k in loaded_dict.keys():
-                        new_dict[k.replace("pydnet.", "")] = loaded_dict[k]
-                    self.pydnet.load_state_dict(new_dict)
+                    loaded_dict = load_state_dict_from_url("https://github.com/Easy2Ride/packnet-sfm/releases/download/v1.0/resnet18_general_roll.pth")
+                    self.load_state_dict(loaded_dict)
                 except:
                     print("Loading pretrained model failed. Please load it manually")
             else:
@@ -285,7 +294,9 @@ class PyddepthInference(Pydnet):
     def forward(self, x):
         self.encoder.eval()
         self.decoder.eval()
-        x=self.encoder(x)
-        return self.decoder(x)[("disp",0)]
+        x =self.encoder(x)
+        x = self.decoder(x)[("disp",0)]
+        
+        return self.min_disp + (self.max_disp - self.min_disp) * x
         #return F.interpolate(self.pydnet(x)[0], scale_factor=2, mode = "bilinear", align_corners = True)
 
